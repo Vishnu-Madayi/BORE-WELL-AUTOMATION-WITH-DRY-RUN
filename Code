@@ -1,0 +1,157 @@
+
+// PIC16F676 Configuration Bit Settings
+
+// 'C' source line config statements
+
+// CONFIG
+#pragma config FOSC = INTRCCLK  // Oscillator Selection bits (INTOSC oscillator: CLKOUT function on RA4/OSC2/CLKOUT pin, I/O function on RA5/OSC1/CLKIN)
+#pragma config WDTE = OFF       // Watchdog Timer Enable bit (WDT disabled)
+#pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
+#pragma config MCLRE = OFF      // RA3/MCLR pin function select (RA3/MCLR pin function is digital I/O, MCLR internally tied to VDD)
+#pragma config BOREN = OFF      // Brown-out Detect Enable bit (BOD disabled)
+#pragma config CP = OFF         // Code Protection bit (Program Memory code protection is disabled)
+#pragma config CPD = OFF        // Data Code Protection bit (Data memory code protection is disabled)
+#define _XTAL_FREQ 8000000
+#include <xc.h> 
+
+
+#define CAP RC3
+#define MOTOR RC2   
+#define POT RC1
+#define SENSOR RC0
+
+
+int readAdc(int);
+
+//int jj,dry_sen,dry_set,countern,countn,counter3,drycnt,dry_fn,dryr,dryt,dry_time;
+
+
+int volt,feedM,LTF,LTL,HTF,HTL,DRY,pot,voltage;
+int counter2;
+long counter;
+int count;
+int dry_fn,counter3,swt_2,countern,countn;
+long drycnt;
+long dryt,dryr;
+int jj;
+
+
+void Dry_Run()
+{
+    DRY =  readAdc(4);
+    pot = readAdc(5);
+            if(pot>=0 &&pot<=200)//////60s..............
+        dryt=35;
+    if(pot>=201 &&pot<=400)//////90s
+        dryt=70;
+    if(pot>=401 &&pot<=600)/////120s.............
+        dryt=105;
+    if(pot>=601 &&pot<=800)/////150s.............
+        dryt=140;
+    if(pot>=801)           /////360s.............
+        dryt=210;
+    
+     
+     dryr=dryt+3600;
+     if(jj==1 && DRY<=500)
+     {
+         countern++;
+       
+     }
+     if(countern>=3000)
+     {
+         countn++;
+         countern=0;
+     }
+     if(countn>=10)   //48
+     {
+        // MOTOR=0;
+         countn=0;
+         dry_fn = 1;
+       //  drycnt=dryt;
+     }
+      if(jj==1 && DRY>=501)
+     {
+        countn=0;  
+      }
+     
+     
+     
+        if(dry_fn == 1)                         //dry functions
+    {
+        if(DRY < 500)
+        {
+        counter3 = counter3 + 1;
+        
+        }
+        if(DRY > 500)
+        {
+            counter3 =0;
+            drycnt = 0;
+            dry_fn = 0;
+           // RC3 = 0;
+            jj=1;
+            
+        }
+        if(counter3 > 3000)
+        {
+          drycnt = drycnt + 1;
+          counter3 = 0;
+        }
+        if(drycnt >= dryt)                         //dry run on
+        {
+          MOTOR = 0;
+        //  RC3 = 1;
+          jj=0;
+        }
+        
+    }
+    
+    
+}
+
+
+
+
+void main()
+{
+   ANSEL = 0b00111100;
+   ADCON0 = 0b10000001;
+   ADCON1 = 0b10000000;
+   TRISC2 = 0;
+   TRISC3 = 0;
+   TRISC0 = 1;
+   TRISC1 = 1;   
+  
+   MOTOR = 0;
+   CAP = 1;      
+    __delay_ms(2000);
+    MOTOR = 1;    
+__delay_ms(1000);
+          
+
+         jj=1;
+   while(1)
+   {
+       CAP=0;
+   
+       Dry_Run();
+      
+   }
+
+ 
+
+}
+
+int readAdc(int channel)
+{
+     int vol;
+      //ADCON0 = 0b10000001 | (channel << 2);
+     ADCON0bits.CHS = channel;
+     __delay_us(20);
+      GO = 1;
+     while(GO == 1);
+     vol = (ADRESH << 8) + ADRESL;
+     __delay_us(5);
+     return vol;
+}
